@@ -23,6 +23,8 @@ library(asnipe)
 library(igraph)
 library(tidyverse)
 library(purrr)
+library(ggnetwork)
+library(intergraph)
 
 # Important functions -----------------------------------------------------
 ### Function that returns the unique individuals in each event 
@@ -208,3 +210,63 @@ centrality_list <- list(centrality_2007, centrality_2008, centrality_2009, centr
 all_centrality <- bind_rows(centrality_list) %>%
   group_by(observation.year) %>%
   dplyr::arrange(., desc(observation.year), desc(eigenvector)) 
+
+all_centrality_summary <- all_centrality %>%
+  group_by(node.name) %>%
+  dplyr::select(eigenvector) %>%
+  dplyr::summarise(
+    n_years = n(),
+    mean_eigenvector = mean(eigenvector),
+    sd_eigenvector=sd(eigenvector))
+
+
+# Network figures ---------------------------------------------------------
+network_list <- list(mushara_07_networkprep, mushara_08_networkprep, mushara_09_networkprep, mushara_10_networkprep, mushara_11_networkprep)
+centrality_list <- list(centrality_2007, centrality_2008, centrality_2009, centrality_2010, centrality_2011)
+
+ggnet_list <- list() 
+
+for(i in 1:length(network_list)){
+  network <- asNetwork(network_list[[i]])
+  ggnet <- ggnetwork(network, layout="fruchtermanreingold", cell.jitter=0.75, weights="weight")
+  
+  ggnet_centrality <- ggnet %>%
+    left_join(., centrality_list[[i]], by=c("vertex.names"="node.name"))
+  
+  ggnet_list[[i]] <- ggnet_centrality
+  
+}
+
+### Bind all rows of dataframe together 
+ggnet_df <- bind_rows(ggnet_list)
+
+
+### Facet labs 
+year.labs <- c("2007", "2008", "2009", "2010", "2011")
+names(year.labs) <- c("2007", "2008", "2009", "2010", "2011")
+
+### Plot the network using facets for each observation year 
+ggplot(ggnet_df,
+       aes(
+         x = x,
+         y = y,
+         xend = xend,
+         yend = yend
+       )) +
+  geom_edges(aes(alpha = weight), curvature = 0.1) +
+  geom_nodes(aes(size=eigenvector, col=eigenvector), col="gold") + 
+  geom_nodetext(data=ggnet_df, aes(x = x,
+                                   y = y,
+                                   label = vertex.names),
+                fontface = "bold", inherit.aes = F, size=3) +
+  facet_wrap( .~ observation.year, nrow=2, labeller = labeller(observation.year = year.labs)) + 
+  theme(strip.text.x = element_text(size = 12, color = "black", face = "bold.italic")) + 
+  labs(size="Eigenvector centrality",
+       alpha="Association Index (SRI)",
+       title="Mushara male elephant networks") + 
+  theme_blank()
+
+### Can adjust settings to output file as desired
+ggsave("mushara_networks.png", width = 14, height = 8, units = "in", dpi=300)
+
+

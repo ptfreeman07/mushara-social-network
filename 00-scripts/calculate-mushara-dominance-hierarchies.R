@@ -19,6 +19,7 @@ library(aniDom)
 library(EloRating)
 library(Perc)
 library(tidyverse)
+library(purrr)
 
 # Important functions -----------------------------------------------------
 ### Function that returns the unique individuals in each event 
@@ -263,4 +264,20 @@ mushara_11_dom <- elo_scores(winners=mushara_11_dominance_prep[[2]]$Winner,
 plot_ranks(mushara_11_dom, plot.CIs=T, plot.identities=T, ordered.by.rank = T)
 ### Calculate David's Scores - corrected for number of interactions in a dyad 
 mush_11_ds <- DS(mushara_11_dominance_prep[[3]], prop=c("Dij"))
+
+
+# Join all David's Score records ------------------------------------------
+
+all_ds <- bind_rows(list(mush_07_ds, mush_08_ds, mush_09_ds, mush_10_ds, mush_11_ds))
+all_ds_summary <- all_ds %>%
+  group_by(ID) %>%
+  dplyr::summarise(
+    meanDS = mean(DS),
+    meanDSnorm = mean(normDS),
+    sdDS = sd(DS),
+    sdDSnorm = sd(normDS),
+    n_records = n()
+  )
+
+
 
